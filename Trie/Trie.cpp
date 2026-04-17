@@ -18,11 +18,10 @@ public:
       if (trie->children.count(ch) == 0) {
         trie->children[ch] = new TrieNode();
       }
-      trie->startsWith++;
       trie = trie->children[ch];
+      trie->startsWith++;
     }
     trie->ends++;
-    trie->startsWith++;
   }
 
   int countWordsEqualTo(std::string word) {
@@ -53,11 +52,11 @@ public:
       if (trie->children.count(ch) == 0) {
         return;
       }
-      trie->startsWith--;
+
       trie = trie->children[ch];
+      trie->startsWith--;
     }
     trie->ends--;
-    trie->startsWith--;
   }
   ~Trie() { deleteTrie(root); }
 
