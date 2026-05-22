@@ -1,73 +1,91 @@
 #include <iostream>
 #include <string>
 #include <unordered_map>
+#include <memory> // for unique_ptr
+#include <string_view> 
 
 struct TrieNode {
   int ends{0};
   int startsWith{0};
-  std::unordered_map<char, TrieNode *> children;
+  // Automatic lifetime management: replacing raw pointers
+  std::unordered_map<char, std::unique_ptr<TrieNode>> children;
 };
 
 class Trie {
 public:
-  Trie() : root(new TrieNode()) {}
+  // std::make_unique is safer and cleaner than 'new'
+  Trie() : root(std::make_unique<TrieNode>()) {}
 
-  void insert(std::string word) {
-    auto trie = root;
+
+  // Pass by string_view to avoid copying string data
+  void insert(std::string_view word) {
+    // Use get() to get a non-owning raw pointer for traversal
+    auto* current = root.get();
     for (auto ch : word) {
-      if (trie->children.count(ch) == 0) {
-        trie->children[ch] = new TrieNode();
+      auto& child = current->children[ch];
+      if(!child) {
+        // actually modifies the map entry inside current->children
+        child = std::make_unique<TrieNode>();
       }
-      trie = trie->children[ch];
-      trie->startsWith++;
+      current = child.get();
+      current->startsWith++;
     }
-    trie->ends++;
+    current->ends++;
   }
 
-  int countWordsEqualTo(std::string word) {
-    auto trie = root;
+  // const method because it doesn't modify the Trie
+  int countWordsEqualTo(std::string_view word) const {
+    const auto* current = root.get();
     for (auto ch : word) {
-      if (trie->children.count(ch) == 0) {
+      // just one lookup
+      // doesn't use subscript which can mutate
+      auto it = current->children.find(ch);
+      if (it == current->children.end()) {
         return 0;
       }
-      trie = trie->children[ch];
+      current = it->second.get();
     }
-    return trie->ends;
+    return current->ends;
   }
 
-  int countWordsStartingWith(std::string word) {
-    auto trie = root;
+  int countWordsStartingWith(std::string_view word) const {
+    const auto* current = root.get();
     for (auto ch : word) {
-      if (trie->children.count(ch) == 0) {
+      auto it = current->children.find(ch);
+      if (it == current->children.end()) {
         return 0;
       }
-      trie = trie->children[ch];
+      current = it->second.get();
     }
-    return trie->startsWith;
+    return current->startsWith;
   }
 
-  void erase(std::string word) {
-    auto trie = root;
+  void erase(std::string_view word) {
+    auto* current = root.get();
     for (auto ch : word) {
-      if (trie->children.count(ch) == 0) {
+      auto it = current->children.find(ch);
+      if (it == current->children.end()) {
         return;
       }
 
-      trie = trie->children[ch];
-      trie->startsWith--;
+      current = it->second.get();
+      current->startsWith--;
     }
-    trie->ends--;
+    current->ends--;
   }
-  ~Trie() { deleteTrie(root); }
+  // No custom destructor needed! unique_ptr cleans up automatically
+  // ~Trie() { deleteTrie(root); }
+  ~Trie() = default;
 
 private:
-  void deleteTrie(TrieNode *node) {
-    for (auto &[ch, child] : node->children) {
-      deleteTrie(child);
-    }
-    delete node;
-  }
-  TrieNode *root;
+  // No need to delete manually
+  // void deleteTrie(TrieNode *node) {
+  //   for (auto &[ch, child] : node->children) {
+  //     deleteTrie(child);
+  //   }
+  //   delete node;
+  // }
+  std::unique_ptr<TrieNode> root;
 };
 
 int main() {
